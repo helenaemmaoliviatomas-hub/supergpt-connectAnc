@@ -4,18 +4,18 @@
 
 一个简单的本地 API 配置器。选择中转站、选择 Claude 或 Codex、填写密钥、勾选模型，然后导入。
 
-**v0.1.3** · [下载](https://github.com/superpilot69/supergpt-connect/releases/tag/v0.1.3) · [反馈问题](https://github.com/superpilot69/supergpt-connect/issues) · [MIT 许可](LICENSE)
+**v0.1.4** · [下载](https://github.com/superpilot69/supergpt-connect/releases/tag/v0.1.4) · [反馈问题](https://github.com/superpilot69/supergpt-connect/issues) · [MIT 许可](LICENSE)
 
 ## 下载与使用
 
 | 系统 | 下载 | 打开方式 |
 | --- | --- | --- |
-| Windows 10 / 11 · x64 | [Windows 免安装 ZIP](https://github.com/superpilot69/supergpt-connect/releases/download/v0.1.3/SuperGPT-Connect-0.1.3-Windows-x64-portable.zip) | 全部解压，双击 `SuperGPT Connect.exe` |
-| macOS · Apple Silicon | [Mac ZIP](https://github.com/superpilot69/supergpt-connect/releases/download/v0.1.3/SuperGPT-Connect-0.1.3-macOS-arm64.zip) | 解压后打开 `.app`，也可拖入「应用程序」 |
+| Windows 10 / 11 · x64 | [Windows 免安装 ZIP](https://github.com/superpilot69/supergpt-connect/releases/download/v0.1.4/SuperGPT-Connect-0.1.4-Windows-x64-portable.zip) | 全部解压，双击 `SuperGPT Connect.exe` |
+| macOS · Apple Silicon | [Mac ZIP](https://github.com/superpilot69/supergpt-connect/releases/download/v0.1.4/SuperGPT-Connect-0.1.4-macOS-arm64.zip) | 解压后打开 `.app`，也可拖入「应用程序」 |
 
-本页下载使用 [GitHub Releases](https://github.com/superpilot69/supergpt-connect/releases/tag/v0.1.3)。[SHA-256 校验值](https://github.com/superpilot69/supergpt-connect/releases/download/v0.1.3/SHA256SUMS.txt) 也在同一版本下。Mac 包仅支持 M 系列芯片，不支持 Intel Mac。
+本页下载使用 [GitHub Releases](https://github.com/superpilot69/supergpt-connect/releases/tag/v0.1.4)。[SHA-256 校验值](https://github.com/superpilot69/supergpt-connect/releases/download/v0.1.4/SHA256SUMS.txt) 也在同一版本下。Mac 包仅支持 M 系列芯片，不支持 Intel Mac。
 
-当前版本通过 macOS 与 Windows 原生自动测试，并使用真实 Codex app-server 验证上下文、思考强度、重复导入与恢复；Mac 同时完成图形界面导入与恢复检查。详细范围见 [验证记录](VERIFICATION.md)。
+当前版本通过 macOS 与 Windows 原生自动测试，并使用真实 Codex app-server 验证图片发送、上下文、思考强度、重复导入与恢复。详细范围见 [验证记录](VERIFICATION.md)。
 
 运行时无需安装 Node.js 或 Rust。Windows 使用系统 WebView2 Runtime；缺少时，按应用提示从 [微软官网](https://developer.microsoft.com/microsoft-edge/webview2/) 安装。Windows 包未进行发布者签名；Mac 包使用 ad-hoc 签名，尚未完成 Apple Developer ID 签名与公证。校验值见 Release 的 `SHA256SUMS.txt`。
 
@@ -27,7 +27,7 @@ SHA-256 用于核对下载完整性，不代表安全扫描或系统认证。反
 
 ### 更新已有 Codex 配置
 
-旧版本 Connect 导入 Codex 后，可能导致可用上下文较短。请使用当前版本重新导入，应用上下文与思考强度的兼容性更新。
+旧版本 Connect 导入 Codex 后，可能出现可用上下文较短或模型被误标为仅文字、无法添加图片。0.1.4 修复图片能力导入，请使用当前版本重新获取模型并导入，应用修复并保留已有的上下文与思考设置。
 
 **下载新版 → 重新获取模型并导入 Codex → 完全退出 Codex 再打开 → 新建本地会话。** 只替换连接器程序不会更新已写入的模型目录，也不能还原旧会话中已经压缩掉的内容。
 
