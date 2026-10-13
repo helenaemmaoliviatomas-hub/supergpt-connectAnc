@@ -1,10 +1,11 @@
 """Local UI smoke-test gateway. Only accepts a fake fixture key; never logs headers."""
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import json
+from urllib.parse import urlsplit
 
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
-        if self.path != '/v1/models':
+        if urlsplit(self.path).path != '/v1/models':
             self.send_error(404)
             return
         allowed = self.headers.get('Authorization') == 'Bearer sk-local-fixture-only'

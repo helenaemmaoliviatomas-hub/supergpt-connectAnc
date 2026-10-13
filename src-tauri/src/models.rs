@@ -203,21 +203,36 @@ pub async fn discover(input: DiscoveryInput) -> Result<DiscoveredModels, String>
         .redirect(reqwest::redirect::Policy::none())
         .build()
         .map_err(|_| "无法初始化网络连接。")?;
-    // The credential is only sent to this exact origin. No redirect or response body is echoed.
-    let mut response = client
-        .get(format!("{root}/v1/models"))
-        .bearer_auth(&api_key)
-        .header("Accept", "application/json")
-        .send()
-        .await
-        .map_err(|error| {
-            if error.is_timeout() {
-                "连接超时，请检查网络和 API 地址。"
-            } else {
-                "无法连接 API，请检查网络、证书和 API 地址。"
-            }
-            .to_string()
-        })?;
+    // Match the catalog protocol exercised by verify-codex-runtime.py. A plain
+    // model list can contain names only, omitting image and reasoning capabilities.
+    const CODEX_CATALOG_CLIENT_VERSION: &str = "0.162.0";
+    let endpoint = format!("{root}/v1/models");
+    let fetch = |codex_manifest: bool| {
+        let mut request = client
+            .get(&endpoint)
+            .bearer_auth(&api_key)
+            .header("Accept", "application/json");
+        if codex_manifest {
+            request = request.query(&[("client_version", CODEX_CATALOG_CLIENT_VERSION)]);
+        }
+        // Credentials stay on this exact origin; redirects and bodies are never echoed.
+        async move {
+            request.send().await.map_err(|error| {
+                if error.is_timeout() {
+                    "连接超时，请检查网络和 API 地址。"
+                } else {
+                    "无法连接 API，请检查网络、证书和 API 地址。"
+                }
+                .to_string()
+            })
+        }
+    };
+    let mut response = fetch(input.client.is_codex()).await?;
+    if input.client.is_codex() && matches!(response.status().as_u16(), 400 | 404 | 405 | 422) {
+        // Some third-party gateways reject query parameters. Fall back once,
+        // but never retry authentication, rate-limit, redirect, or server errors.
+        response = fetch(false).await?;
+    }
     if !response.status().is_success() {
         return Err(match response.status().as_u16() {
             401 => "密钥未通过验证，请检查是否复制完整。".into(),

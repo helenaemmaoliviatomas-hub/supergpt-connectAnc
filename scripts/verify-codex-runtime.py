@@ -5,6 +5,7 @@ Usage: cargo build --manifest-path src-tauri/Cargo.toml --no-default-features --
        python scripts/verify-codex-runtime.py --download-codex
 """
 import argparse
+import base64
 import gzip
 import hashlib
 import json
@@ -19,11 +20,13 @@ import tempfile
 import threading
 import time
 import urllib.request
+from urllib.parse import parse_qs, urlsplit
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 ROOT = Path(__file__).resolve().parents[1]
 VERSION = "0.162.0"
 FAKE_KEY = "sk-connect-fixture-only"
+IMAGE_URL = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAEklEQVR4nGP4z8DAAMIM/4EAAB/uBfsL2WiLAAAAAElFTkSuQmCC"
 PROFILES = json.loads((ROOT / "src-tauri/src/resources/codex_model_profiles.json").read_text())
 
 
@@ -66,9 +69,14 @@ class Gateway(BaseHTTPRequestHandler):
         pass
 
     def do_GET(self):
-        assert self.path == "/v1/models", self.path
+        url = urlsplit(self.path)
+        assert url.path == "/v1/models", self.path
         assert self.headers.get("Authorization") == "Bearer " + FAKE_KEY
-        body = json.dumps(self.server.payload).encode()
+        self.server.model_requests.append(self.path)
+        if url.query:
+            assert parse_qs(url.query) == {"client_version": [VERSION]}, self.path
+        payload = self.server.payload if url.query else self.server.plain_payload
+        body = json.dumps(payload).encode()
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
@@ -82,10 +90,14 @@ class Gateway(BaseHTTPRequestHandler):
         if self.headers.get("Content-Encoding") == "gzip":
             body = gzip.decompress(body)
         data = json.loads(body)
+        images = [part.get("image_url") for item in data.get("input", [])
+                  if isinstance(item.get("content"), list) for part in item["content"]
+                  if part.get("type") == "input_image"]
         normal = "CTX_FIXTURE_" in json.dumps(data.get("input", [])[-1:])
         tokens = self.server.usage if normal else 100
         self.server.requests.append({"model": data.get("model"), "reasoning": data.get("reasoning"),
-                                     "normal_turn": normal, "reported_input_tokens": tokens})
+                                     "normal_turn": normal, "reported_input_tokens": tokens,
+                                     "image_urls": images})
         message = {"id": "msg_fixture", "type": "message", "status": "completed", "role": "assistant",
                    "content": [{"type": "output_text", "text": "OK", "annotations": []}]}
         response = {"id": "resp_" + str(len(self.server.requests)), "object": "response", "model": data["model"],
@@ -159,9 +171,11 @@ class Codex:
         self.last_start = reply
         return reply["thread"]["id"]
 
-    def turn(self, thread, model, effort=None):
+    def turn(self, thread, model, effort=None, image=None):
         params = {"threadId": thread, "model": model,
                   "input": [{"type": "text", "text": "CTX_FIXTURE_: Reply OK without tools."}]}
+        if image:
+            params["input"].append(image)
         if effort is not None:
             params["effort"] = effort
         self.rpc("turn/start", params)
@@ -200,7 +214,8 @@ def main():
         threading.Thread(target=gateway.serve_forever, daemon=True).start()
         endpoint = "http://127.0.0.1:" + str(gateway.server_port)
 
-        def run_case(label, payload, models, config="", usage=None, all_efforts=False, legacy=False, repair=False):
+        def run_case(label, payload, models, config="", usage=None, all_efforts=False, legacy=False, repair=False,
+                     vision=False, legacy_vision=False):
             home = temp / (label + " 中文 User")
             home.mkdir()
             (home / ".connect-runtime-fixture").touch()
@@ -218,8 +233,15 @@ def main():
                 assert result.returncode == 0, result.stderr
                 return json.loads(result.stdout)
             gateway.payload, gateway.requests, gateway.usage = payload, [], 100
+            gateway.model_requests = []
+            gateway.plain_payload = {"data": [{"id": model} for model in models]} if vision else payload
             apply()
             catalog_path = home / ".codex/supergpt-models.json"
+            if legacy_vision:
+                old = json.loads(catalog_path.read_text())
+                old["models"][0]["input_modalities"] = ["text"]
+                catalog_path.write_text(json.dumps(old))
+                apply()
             if legacy:
                 old = json.loads(catalog_path.read_text())
                 old.pop("_supergpt_connect", None)
@@ -250,6 +272,7 @@ def main():
                 for row in catalog["models"]:
                     model = row["slug"]
                     picked = next(m for m in listed if m["model"] == model)
+                    assert picked["inputModalities"] == row["input_modalities"], (model, picked)
                     efforts = [v["effort"] for v in row["supported_reasoning_levels"]]
                     assert [v["reasoningEffort"] for v in picked["supportedReasoningEfforts"]] == efforts
                     default = row["default_reasoning_level"]
@@ -285,7 +308,23 @@ def main():
                         else:
                             assert not sent[0]["reasoning"], sent
                         observed.append(effort)
-                    case["models"].append({"id": model, "effective_context": expected, "efforts_sent": observed})
+                    case["models"].append({"id": model, "effective_context": expected, "efforts_sent": observed,
+                                           "input_modalities": picked["inputModalities"]})
+                if vision:
+                    assert catalog["models"][0]["input_modalities"] == ["text", "image"]
+                    assert catalog["models"][1]["input_modalities"] == ["text"]
+                    assert all("?client_version=" in path for path in gateway.model_requests)
+                    image_path = home / "图片 fixture.png"
+                    image_path.write_bytes(base64.b64decode(IMAGE_URL.split(",", 1)[1]))
+                    for image in [{"type": "image", "url": IMAGE_URL},
+                                  {"type": "localImage", "path": str(image_path)}]:
+                        thread = client.start(home, models[0])
+                        before = len(gateway.requests)
+                        client.turn(thread, models[0], image=image)
+                        sent = gateway.requests[before:]
+                        assert len(sent) == 1 and len(sent[0]["image_urls"]) == 1, sent
+                        assert sent[0]["image_urls"][0].startswith("data:image/png;base64,"), sent
+                    case["image_attachment_types_sent"] = ["image", "localImage"]
                 if usage is not None:
                     model = models[0]
                     thread = client.start(home, model)
@@ -304,6 +343,7 @@ def main():
                 (args.output / (label + "-events.json")).write_text(json.dumps(client.events, indent=2), encoding="utf-8")
                 (args.output / (label + "-stderr.log")).write_text("".join(client.errors), encoding="utf-8")
                 case["requests"] = gateway.requests
+                case["model_discovery_paths"] = gateway.model_requests
             apply(restore=True)
             assert (home / ".codex/config.toml").read_bytes() == baseline
             assert (home / ".codex/auth.json").read_bytes() == original_auth
@@ -330,6 +370,13 @@ def main():
             run_case("gateway-numeric-efforts", {"data": [{"id": "numeric-model", "context_window": 131072,
                     "supported_reasoning_levels": [{"effort": 1024}, {"effort": 4096}],
                     "default_reasoning_level": 4096}]}, ["numeric-model"], all_efforts=True)
+            vision_models = {"models": [
+                {"slug": "gpt-5.6-sol", "input_modalities": ["text", "image"], "context_window": 272000},
+                {"slug": "text-only-alias", "input_modalities": ["text"], "context_window": 65536},
+            ]}
+            run_case("vision-first-import", vision_models, ["gpt-5.6-sol", "text-only-alias"], vision=True)
+            run_case("vision-013-upgrade", vision_models, ["gpt-5.6-sol", "text-only-alias"],
+                     vision=True, legacy_vision=True)
             report["passed"] = True
         finally:
             gateway.shutdown()
