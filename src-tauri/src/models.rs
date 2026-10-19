@@ -71,6 +71,8 @@ pub struct SelectionInput {
     pub discovery_id: String,
     pub selected_models: Vec<String>,
     pub default_model: String,
+    #[serde(default)]
+    pub tool_search: crate::capabilities::ToolSearchMode,
 }
 #[derive(Clone, Debug, Serialize)]
 pub struct ModelChoice {
@@ -84,6 +86,7 @@ pub struct DiscoveryResponse {
     pub client: Client,
     pub base_url: String,
     pub models: Vec<ModelChoice>,
+    pub capabilities: crate::capabilities::RouteCapabilities,
 }
 
 pub struct DiscoveredModels {
@@ -92,6 +95,7 @@ pub struct DiscoveredModels {
     pub root: String,
     pub payload: Value,
     pub choices: Vec<ModelChoice>,
+    pub capabilities: crate::capabilities::RouteCapabilities,
 }
 pub struct ValidatedInput {
     pub client: Client,
@@ -100,6 +104,8 @@ pub struct ValidatedInput {
     pub model: String,
     pub selected_models: Vec<String>,
     pub catalog: Option<String>,
+    pub capabilities: crate::capabilities::RouteCapabilities,
+    pub tool_search: crate::capabilities::ToolSearchMode,
 }
 pub struct DiscoverySession {
     id: String,
@@ -125,13 +131,17 @@ impl DiscoverySession {
             client: self.data.client,
             base_url: self.data.root.clone(),
             models: self.data.choices.clone(),
+            capabilities: self.data.capabilities.clone(),
         }
     }
     pub fn prepare(&self, input: &SelectionInput) -> Result<ValidatedInput, String> {
         if input.discovery_id != self.id || self.created.elapsed() > Duration::from_secs(15 * 60) {
             return Err("模型列表已失效，请重新获取后再导入。".into());
         }
-        prepare_selection(&self.data, &input.selected_models, &input.default_model)
+        let mut selected =
+            prepare_selection(&self.data, &input.selected_models, &input.default_model)?;
+        selected.tool_search = input.tool_search;
+        Ok(selected)
     }
 }
 
@@ -257,6 +267,11 @@ pub async fn discover(input: DiscoveryInput) -> Result<DiscoveredModels, String>
     }
     let payload: Value =
         serde_json::from_slice(&bytes).map_err(|_| "API 返回的模型目录不是有效 JSON。")?;
+    let capabilities = if !input.client.is_codex() {
+        crate::capabilities::discover(&client, &root, &api_key).await
+    } else {
+        Default::default()
+    };
     let models = catalog_models(&payload);
     if models.is_empty() {
         return Err("密钥返回的模型目录为空，请检查分组是否有可用模型。".into());
@@ -293,6 +308,7 @@ pub async fn discover(input: DiscoveryInput) -> Result<DiscoveredModels, String>
         root,
         payload,
         choices,
+        capabilities,
     })
 }
 
@@ -316,6 +332,20 @@ pub fn prepare_selection(
     if !selected.iter().any(|id| id == default_model) {
         return Err("请从已勾选模型中指定一个默认模型。".into());
     }
+    if selected.iter().any(|id| {
+        [
+            "gpt-image",
+            "dall-e",
+            "whisper-",
+            "tts-",
+            "text-embedding-",
+            "sora-",
+        ]
+        .iter()
+        .any(|prefix| id.to_ascii_lowercase().starts_with(prefix))
+    }) {
+        return Err("图片生成、语音或嵌入专用模型不能作为对话模型导入，请取消勾选。".into());
+    }
     let catalog = if data.client.is_codex() {
         Some(build_codex_catalog(&data.payload, selected)?)
     } else {
@@ -328,6 +358,8 @@ pub fn prepare_selection(
         model: default_model.into(),
         selected_models: selected.to_vec(),
         catalog,
+        capabilities: data.capabilities.clone(),
+        tool_search: Default::default(),
     })
 }
 
@@ -527,6 +559,7 @@ mod session_tests {
     #[test]
     fn expired_discovery_requires_a_new_fetch_even_with_the_matching_id() {
         let mut session = DiscoverySession::new(DiscoveredModels {
+            capabilities: Default::default(),
             client: Client::Claude,
             api_key: "fake-only".into(),
             root: "https://example.test".into(),
@@ -537,6 +570,7 @@ mod session_tests {
             }],
         });
         let input = SelectionInput {
+            tool_search: Default::default(),
             discovery_id: session.response().discovery_id,
             selected_models: vec!["a".into()],
             default_model: "a".into(),

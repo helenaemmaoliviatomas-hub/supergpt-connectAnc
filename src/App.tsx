@@ -55,6 +55,8 @@ import StationEditor from "./StationEditor";
 import RestorePanel from "./RestorePanel";
 import { version } from "../package.json";
 
+import { previewConfig, type SetupPreview, type ToolSearchMode } from "./native";
+
 const steps = ["中转站", "客户端", "API 密钥", "选择模型"];
 import { clients, families, clientFamily, modelSelectable } from "./clients";
 function BrandIcon({ className = "" }: { className?: string }) {
@@ -135,10 +137,7 @@ export default function App() {
   const [theme, setTheme] = useState(initialTheme);
   const [step, setStep] = useState(0);
   const [furthest, setFurthest] = useState(0);
-  const [preferences, setPreferences] = useState<StationPreferences>(() => ({
-    ...loadStationPreferences(),
-    selected: DEFAULT_STATION.id,
-  }));
+  const [preferences, setPreferences] = useState<StationPreferences>(loadStationPreferences);
   const [editing, setEditing] = useState<Station | null | undefined>();
   const [client, setClient] = useState<Client>("codex-desktop");
   const [apiKey, setApiKey] = useState("");
@@ -146,6 +145,22 @@ export default function App() {
   const [discovery, setDiscovery] = useState<DiscoveryResult | null>(null);
   const [selection, setSelection] = useState<ModelSelection>(EMPTY_SELECTION);
   const [query, setQuery] = useState("");
+  const [toolSearch, setToolSearch] = useState<ToolSearchMode>("auto");
+  const [review, setReview] = useState<{ key: string; value?: SetupPreview; error?: string } | null>(null);
+  const previewKey = JSON.stringify([discovery?.discoveryId, selection, toolSearch]);
+  const preview = review?.key === previewKey ? review.value : undefined;
+  const previewError = review?.key === previewKey ? review.error : undefined;
+  useEffect(() => {
+    if (!discovery || !selection.ids.length || !nativeAvailable) return;
+    let active = true;
+    const timer = window.setTimeout(() => {
+      previewConfig({ discoveryId: discovery.discoveryId, selectedModels: selection.ids,
+        defaultModel: selection.defaultId, toolSearch })
+        .then(value => { if (active) setReview({ key: previewKey, value }); })
+        .catch(error => { if (active) setReview({ key: previewKey, error: typeof error === "string" ? error : "无法检查导入设置，请重新获取模型。" }); });
+    }, 150);
+    return () => { active = false; window.clearTimeout(timer); };
+  }, [previewKey]);
   const [status, setStatus] = useState<Status | null>(null);
   const [busy, setBusy] = useState<"discover" | "import" | "restore" | null>(
     null,
@@ -170,9 +185,10 @@ export default function App() {
         .toLowerCase()
         .includes(query.trim().toLowerCase()),
     ) ?? [];
-  const selectableMatching = matching.filter((model) =>
-    modelSelectable(client, model.id),
-  );
+  function selectable(id: string) {
+    return modelSelectable(client, id) && (family === "codex" || discovery?.capabilities?.models[id]?.messages.status !== "unsupported");
+  }
+  const selectableMatching = matching.filter((model) => selectable(model.id));
   const allMatchingSelected =
     selectableMatching.length > 0 &&
     selectableMatching.every((model) => selection.ids.includes(model.id));
@@ -197,6 +213,8 @@ export default function App() {
   }, [step, result]);
   function clearDiscovery() {
     setDiscovery(null);
+    setToolSearch("auto");
+    setReview(null);
     setSelection(EMPTY_SELECTION);
     setQuery("");
     setError("");
@@ -259,7 +277,7 @@ export default function App() {
     }
   }
   async function importSelected() {
-    if (disabled || !discovery || !selection.ids.length) return;
+    if (disabled || !discovery || !selection.ids.length || !preview || preview.blocked) return;
     setBusy("import");
     setError("");
     try {
@@ -267,6 +285,7 @@ export default function App() {
         discoveryId: discovery.discoveryId,
         selectedModels: selection.ids,
         defaultModel: selection.defaultId,
+        toolSearch,
       });
       setResult(imported);
       setApiKey("");
@@ -299,7 +318,7 @@ export default function App() {
     setVisible(false);
     setStep(0);
     setFurthest(0);
-    setPreferences((current) => ({ ...current, selected: DEFAULT_STATION.id }));
+
   }
   function toggleModel(id: string, checked: boolean) {
     setSelection((current) =>
@@ -775,7 +794,7 @@ export default function App() {
                               type="checkbox"
                               checked={checked}
                               disabled={
-                                !modelSelectable(client, model.id) ||
+                                !selectable(model.id) ||
                                 disabled ||
                                 (!checked && selection.ids.length >= MAX_MODELS)
                               }
@@ -794,9 +813,9 @@ export default function App() {
                               )}
                             </span>
                           </label>
-                          {!modelSelectable(client, model.id) && (
+                          {!selectable(model.id) && (
                             <span className="model-unavailable">
-                              不兼容桌面版
+                              不兼容此入口
                             </span>
                           )}
                           {checked && (
@@ -852,6 +871,24 @@ export default function App() {
                       <span>请至少勾选一个</span>
                     )}
                   </div>
+                  {selection.ids.length > 0 && (
+                    <div className="capability-review" aria-live="polite">
+                      {family === "claude" && <label className="capability-setting">
+                        <span>工具按需加载</span>
+                        <select aria-label="工具按需加载" value={toolSearch} disabled={disabled}
+                          onChange={event => setToolSearch(event.target.value as ToolSearchMode)}>
+                          <option value="auto">自动（已验证支持时开启）</option>
+                          <option value="disabled">关闭</option>
+                          <option value="enabled">手动开启</option>
+                        </select>
+                      </label>}
+                      {preview ? <>
+                        <p><strong>{preview.summary}</strong></p>
+                        {preview.warnings.map(text => <p key={text} className="capability-warning">{text}</p>)}
+                        {preview.blocked && <p className="blocking-note" role="alert">{preview.blocked}</p>}
+                      </> : <p>{previewError || "正在检查线路和本机设置…"}</p>}
+                    </div>
+                  )}
                   <p className="fine-print">
                     模型列表来自当前密钥，实际调用需中转站支持{" "}
                     {family === "codex" ? "Responses" : "Messages"} 接口。
@@ -955,6 +992,8 @@ export default function App() {
                       disabled ||
                       !selection.ids.length ||
                       !discovery ||
+                      !preview ||
+                      !!preview.blocked ||
                       !!clientStatus?.pending ||
                       !!clientStatus?.compatibility.blocked
                     }

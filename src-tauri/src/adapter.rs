@@ -27,13 +27,17 @@ pub struct ImportResult {
 
 pub fn apply(paths: &Paths, input: ValidatedInput) -> Result<ImportResult, String> {
     let _lock = paths.lock()?;
-    let compatibility = crate::compatibility::inspect(paths, input.client);
-    if let Some(blocked) = compatibility.blocked {
+    let preview = crate::capabilities::preview(paths, &input)?;
+    if let Some(blocked) = preview.blocked {
         return Err(blocked);
     }
     let mut changes = Vec::new();
     match input.client {
-        Client::ClaudeDesktop => changes.extend(crate::desktop_config::changes(paths, &input)?),
+        Client::ClaudeDesktop => changes.extend(crate::desktop_config::changes(
+            paths,
+            &input,
+            preview.tool_search_enabled,
+        )?),
         Client::Claude | Client::ClaudeVscode => {
             let kind = FileKind::ClaudeSettings;
             let path = paths.target(kind);
@@ -77,6 +81,14 @@ pub fn apply(paths: &Paths, input: ValidatedInput) -> Result<ImportResult, Strin
                 ("ANTHROPIC_DEFAULT_FABLE_MODEL", input.model.as_str()),
                 ("CLAUDE_CODE_SUBAGENT_MODEL", input.model.as_str()),
                 ("CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC", "1"),
+                (
+                    "ENABLE_TOOL_SEARCH",
+                    if preview.tool_search_enabled {
+                        "true"
+                    } else {
+                        "false"
+                    },
+                ),
             ] {
                 patch.set.push((KeyPath::new(&["env", key]), json!(val)));
             }
@@ -92,7 +104,11 @@ pub fn apply(paths: &Paths, input: ValidatedInput) -> Result<ImportResult, Strin
                 after,
             });
             if input.client == Client::ClaudeVscode {
-                changes.push(crate::vscode_config::change(paths, &input)?);
+                changes.push(crate::vscode_config::change(
+                    paths,
+                    &input,
+                    preview.tool_search_enabled,
+                )?);
             }
         }
         Client::Codex | Client::CodexDesktop => {
@@ -240,6 +256,6 @@ pub fn apply(paths: &Paths, input: ValidatedInput) -> Result<ImportResult, Strin
             .to_string_lossy()
             .into_owned(),
         next_steps: crate::compatibility::next_steps(input.client),
-        warnings: compatibility.warnings,
+        warnings: preview.warnings,
     })
 }

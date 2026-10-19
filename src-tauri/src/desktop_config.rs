@@ -41,7 +41,11 @@ fn patch(paths: &Paths, kind: FileKind, fields: Value) -> Result<Change, String>
     })
 }
 
-pub fn changes(paths: &Paths, input: &ValidatedInput) -> Result<Vec<Change>, String> {
+pub fn changes(
+    paths: &Paths,
+    input: &ValidatedInput,
+    tool_search_enabled: bool,
+) -> Result<Vec<Change>, String> {
     // The desktop menu validates Claude family IDs. Do not silently substitute a
     // different model or pretend arbitrary OpenAI aliases are Claude models.
     if input
@@ -69,6 +73,7 @@ pub fn changes(paths: &Paths, input: &ValidatedInput) -> Result<Vec<Change>, Str
             "inferenceGatewayAuthScheme": "bearer",
             "inferenceCredentialKind": "static",
             "modelDiscoveryEnabled": false,
+            "toolSearchEnabled": tool_search_enabled,
             "inferenceModels": ordered,
         }),
     )?;

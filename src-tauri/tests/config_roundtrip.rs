@@ -7,6 +7,8 @@ use supergpt_connect_lib::{
 
 fn input(client: Client) -> ValidatedInput {
     ValidatedInput {
+        capabilities: Default::default(),
+        tool_search: Default::default(),
         client,
         api_key: "sk-fake-test-only".into(),
         root: "https://api.example.test".into(),

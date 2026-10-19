@@ -199,6 +199,7 @@ async fn bad_keys_and_redirects_return_redacted_errors() {
 
 fn discovered(client: Client) -> models::DiscoveredModels {
     models::DiscoveredModels {
+        capabilities: Default::default(),
         client,
         api_key: "sk-only-in-memory".into(),
         root: "https://example.test".into(),
@@ -255,6 +256,7 @@ fn model_selection_is_bound_to_the_discovery_session() {
     let session = models::DiscoverySession::new(discovered(Client::Claude));
     let response = session.response();
     let mut request = models::SelectionInput {
+        tool_search: Default::default(),
         discovery_id: response.discovery_id,
         selected_models: vec!["custom-a".into()],
         default_model: "custom-a".into(),

@@ -38,3 +38,8 @@ VS Code 注释保留使用 `jsonc-parser` 0.34.0（MIT），许可证随包附�
 这些资料用于模型目录只返回名称时的思考档位和上下文参数补全，不复制模型指令，不声明视觉能力。最大容量与默认容量分别保留，避免错误限制用户显式配置的窗口。网关明确返回的能力信息优先，包括空档位列表；未知别名不通过名称前缀猜测。`data` 和 `models` 两种目录格式均支持 Codex 原生能力字段。
 
 v0.1.3 同时保留发布目录中的 `multi_agent_reasoning_effort`。Codex 0.162 将 Ultra 作为客户端模式，并通过该字段确定普通请求的档位；不能把菜单中的 Ultra 与发送到 Responses 的 `reasoning.effort` 当作永远相同的字符串。实现依据见 [OpenAI 的档位解析](https://github.com/openai/codex/blob/rust-v0.162.0/codex-rs/protocol/src/openai_models/reasoning_effort.rs)。旧版客户端可能采用自身的回退规则。
+
+
+0.1.5 参考 CC Switch v4.0.15（988b0d00a45ab70aadc7aad683009269e6038f4d）CommonConfigEditor 的 ENABLE_TOOL_SEARCH 配置及 live/floor 的线路切换思路。Connect 另行实现按密钥与模型查询验证结果、导入前预览和本地冲突检查。Claude 桌面版采用原生 toolSearchEnabled；其 gateway 文档要求 1.21459.0 起支持，1.40609.0 起仅打开工具搜索相关 beta，故自动策略对已检测到的更早版本保守关闭。
+
+参考：<https://code.claude.com/docs/en/mcp#configure-tool-search>；<https://claude.com/docs/third-party/claude-desktop/gateway#mcp-tool-search>。

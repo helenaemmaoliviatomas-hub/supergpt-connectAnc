@@ -1728,3 +1728,9 @@ strong {
     max-height: 280px;
   }
 }
+
+.capability-review { margin-top: 18px; padding: 16px; border: 1px solid var(--line); border-radius: 12px; font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
+.capability-review p { margin: 8px 0 0; }
+.capability-setting { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.capability-setting select { max-width: 100%; padding: 8px; color: inherit; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; }
+.capability-warning { opacity: .85; }

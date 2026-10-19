@@ -12,3 +12,9 @@ test("Claude Desktop cannot import an incompatible alias through bulk selection"
   assert.equal(modelSelectable("claude", "custom-alias"), true);
   assert.equal(modelSelectable("codex-desktop", "custom-alias"), true);
 });
+
+test("specialized non-conversation models cannot be bulk-selected as chat models", () => {
+  for (const client of clients) for (const id of ["gpt-image-2", "dall-e-3", "whisper-1", "tts-1", "text-embedding-3-large", "sora-2"]) {
+    assert.equal(modelSelectable(client.id, id), false);
+  }
+});

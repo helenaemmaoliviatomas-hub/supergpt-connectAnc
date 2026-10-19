@@ -22,7 +22,11 @@ fn cst(value: Value) -> CstInputValue {
     }
 }
 
-pub fn change(paths: &Paths, input: &ValidatedInput) -> Result<Change, String> {
+pub fn change(
+    paths: &Paths,
+    input: &ValidatedInput,
+    tool_search_enabled: bool,
+) -> Result<Change, String> {
     let kind = FileKind::ClaudeVscode;
     let before = storage::read_optional(&paths.target(kind))?;
     let text = before
@@ -59,11 +63,18 @@ pub fn change(paths: &Paths, input: &ValidatedInput) -> Result<Change, String> {
     }) {
         return Err("Claude VS Code 环境变量格式无效，未修改配置。".into());
     }
-    vars.retain(|v| !provider_fields::claude_floor_env(v["name"].as_str().unwrap()));
+    vars.retain(|v| {
+        !provider_fields::claude_floor_env(v["name"].as_str().unwrap())
+            && v["name"] != "ENABLE_TOOL_SEARCH"
+    });
     for (name, value) in [
         ("ANTHROPIC_BASE_URL", input.root.as_str()),
         ("ANTHROPIC_AUTH_TOKEN", input.api_key.as_str()),
         ("CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC", "1"),
+        (
+            "ENABLE_TOOL_SEARCH",
+            if tool_search_enabled { "true" } else { "false" },
+        ),
     ] {
         vars.retain(|v| v["name"] != name);
         vars.push(json!({"name": name, "value": value}));

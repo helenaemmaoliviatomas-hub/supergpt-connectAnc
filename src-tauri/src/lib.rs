@@ -1,4 +1,5 @@
 pub mod adapter;
+pub mod capabilities;
 mod codex_context;
 pub mod compatibility;
 pub mod desktop_config;
@@ -92,6 +93,23 @@ mod desktop {
         Ok(response)
     }
     #[tauri::command]
+    async fn preview_config(
+        state: tauri::State<'_, AppState>,
+        input: models::SelectionInput,
+    ) -> Result<capabilities::SetupPreview, String> {
+        let validated = state
+            .discovery
+            .lock()
+            .map_err(|_| "模型列表状态异常。")?
+            .as_ref()
+            .ok_or("请先获取可用模型。")?
+            .prepare(&input)?;
+        let paths = state.paths.clone();
+        tauri::async_runtime::spawn_blocking(move || capabilities::preview(&paths, &validated))
+            .await
+            .map_err(|_| "无法检查导入设置。".to_string())?
+    }
+    #[tauri::command]
     fn import_config(
         state: tauri::State<'_, AppState>,
         input: models::SelectionInput,
@@ -160,6 +178,7 @@ mod desktop {
                 app_status,
                 discover_models,
                 import_config,
+                preview_config,
                 restore_config,
                 restore_points
             ])

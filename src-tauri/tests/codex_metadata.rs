@@ -18,6 +18,8 @@ fn import(paths: &Paths, id: &str, metadata: Value) -> Result<(), String> {
     adapter::apply(
         paths,
         ValidatedInput {
+            capabilities: Default::default(),
+            tool_search: Default::default(),
             client: Client::CodexDesktop,
             api_key: "fake-test-only".into(),
             root: "https://example.test".into(),

@@ -4,16 +4,16 @@
 
 一个简单的本地 API 配置器。选择中转站、选择 Claude 或 Codex、填写密钥、勾选模型，然后导入。
 
-**v0.1.4** · [下载](https://github.com/superpilot69/supergpt-connect/releases/tag/v0.1.4) · [反馈问题](https://github.com/superpilot69/supergpt-connect/issues) · [MIT 许可](LICENSE)
+**v0.1.5** · [下载](https://github.com/superpilot69/supergpt-connect/releases/tag/v0.1.5) · [反馈问题](https://github.com/superpilot69/supergpt-connect/issues) · [MIT 许可](LICENSE)
 
 ## 下载与使用
 
 | 系统 | 下载 | 打开方式 |
 | --- | --- | --- |
-| Windows 10 / 11 · x64 | [Windows 免安装 ZIP](https://github.com/superpilot69/supergpt-connect/releases/download/v0.1.4/SuperGPT-Connect-0.1.4-Windows-x64-portable.zip) | 全部解压，双击 `SuperGPT Connect.exe` |
-| macOS · Apple Silicon | [Mac ZIP](https://github.com/superpilot69/supergpt-connect/releases/download/v0.1.4/SuperGPT-Connect-0.1.4-macOS-arm64.zip) | 解压后打开 `.app`，也可拖入「应用程序」 |
+| Windows 10 / 11 · x64 | [Windows 免安装 ZIP](https://github.com/superpilot69/supergpt-connect/releases/download/v0.1.5/SuperGPT-Connect-0.1.5-Windows-x64-portable.zip) | 全部解压，双击 `SuperGPT Connect.exe` |
+| macOS · Apple Silicon | [Mac ZIP](https://github.com/superpilot69/supergpt-connect/releases/download/v0.1.5/SuperGPT-Connect-0.1.5-macOS-arm64.zip) | 解压后打开 `.app`，也可拖入「应用程序」 |
 
-本页下载使用 [GitHub Releases](https://github.com/superpilot69/supergpt-connect/releases/tag/v0.1.4)。[SHA-256 校验值](https://github.com/superpilot69/supergpt-connect/releases/download/v0.1.4/SHA256SUMS.txt) 也在同一版本下。Mac 包仅支持 M 系列芯片，不支持 Intel Mac。
+本页下载使用 [GitHub Releases](https://github.com/superpilot69/supergpt-connect/releases/tag/v0.1.5)。[SHA-256 校验值](https://github.com/superpilot69/supergpt-connect/releases/download/v0.1.5/SHA256SUMS.txt) 也在同一版本下。Mac 包仅支持 M 系列芯片，不支持 Intel Mac。
 
 当前版本通过 macOS 与 Windows 原生自动测试，并使用真实 Codex app-server 验证图片发送、上下文、思考强度、重复导入与恢复。详细范围见 [验证记录](VERIFICATION.md)。
 
@@ -27,7 +27,7 @@ SHA-256 用于核对下载完整性，不代表安全扫描或系统认证。反
 
 ### 更新已有 Codex 配置
 
-旧版本 Connect 导入 Codex 后，可能出现可用上下文较短或模型被误标为仅文字、无法添加图片。0.1.4 修复图片能力导入，请使用当前版本重新获取模型并导入，应用修复并保留已有的上下文与思考设置。
+旧版本 Connect 导入 Codex 后，可能出现可用上下文较短或模型被误标为仅文字、无法添加图片。0.1.5 修复图片能力导入，请使用当前版本重新获取模型并导入，应用修复并保留已有的上下文与思考设置。
 
 **下载新版 → 重新获取模型并导入 Codex → 完全退出 Codex 再打开 → 新建本地会话。** 只替换连接器程序不会更新已写入的模型目录，也不能还原旧会话中已经压缩掉的内容。
 
@@ -130,3 +130,10 @@ SUPERGPT_CONNECT_TEST_HOME=/absolute/path/to/test-home src-tauri/target/debug/su
 ## 开源与来源
 
 采用 MIT 许可，基于 [CC Switch](https://github.com/farion1231/cc-switch) 裁剪配置引擎，保留上游版权与许可。使用 React、Tauri 和 Rust；来源与裁剪范围见 [UPSTREAM.md](UPSTREAM.md)，第三方许可见 [licenses/](licenses/)。本项目独立维护，不是 Claude 或 Codex 的官方客户端。
+
+
+### MCP 工具按需加载
+
+Claude 导入前显示当前密钥对应线路的能力和本机冲突。默认自动：只有所选模型全部通过服务端验证才开启；没有能力接口、验证过期或某模型未验证时关闭并说明可能增加初始上下文。读取能力仅发送认证 GET，不发送收费探测请求。可选择关闭，或手动开启未验证线路。已确认不支持的线路不能强制开启。切换线路后需要重新导入并重启客户端。
+
+终端/VS Code 使用 ENABLE_TOOL_SEARCH，Claude 桌面版使用 toolSearchEnabled。禁用实验功能、ToolSearch 禁止规则、旧版本、项目或组织策略可能影响实际行为；Connect 保留这些设置并展示能检测到的冲突。alwaysLoad 工具仍会提前加载。

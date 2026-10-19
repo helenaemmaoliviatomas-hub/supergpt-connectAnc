@@ -214,7 +214,27 @@ pub fn inspect(paths: &Paths, client: Client) -> Compatibility {
                         result.installed = true;
                         if let Ok(text) = fs::read_to_string(entry.path().join("package.json")) {
                             if let Ok(value) = serde_json::from_str::<serde_json::Value>(&text) {
-                                result.version = value["version"].as_str().map(str::to_owned);
+                                if let Some(version) = value["version"].as_str() {
+                                    let numbers = |v: &str| {
+                                        v.split('.')
+                                            .take(3)
+                                            .map(|p| {
+                                                p.split('-')
+                                                    .next()
+                                                    .unwrap_or("")
+                                                    .parse::<u32>()
+                                                    .unwrap_or(0)
+                                            })
+                                            .collect::<Vec<_>>()
+                                    };
+                                    if result
+                                        .version
+                                        .as_deref()
+                                        .is_none_or(|old| numbers(version) > numbers(old))
+                                    {
+                                        result.version = Some(version.to_owned());
+                                    }
+                                }
                             }
                         }
                     }

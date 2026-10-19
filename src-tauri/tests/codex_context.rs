@@ -11,6 +11,8 @@ fn input(id: &str, metadata: Value) -> ValidatedInput {
     row["id"] = json!(id);
     let selected_models = vec![id.into()];
     ValidatedInput {
+        capabilities: Default::default(),
+        tool_search: Default::default(),
         client: Client::CodexDesktop,
         api_key: "fake-fixture-only".into(),
         root: "https://example.test".into(),

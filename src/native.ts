@@ -45,6 +45,7 @@ export interface DiscoveryResult {
   client: Client;
   baseUrl: string;
   models: ModelChoice[];
+  capabilities?: { models: Record<string, { messages: { status: CapabilityState }; claude_tool_search: { status: CapabilityState } }> };
 }
 export function discoverModels(input: {
   client: Client;
@@ -53,11 +54,7 @@ export function discoverModels(input: {
 }): Promise<DiscoveryResult> {
   return invoke("discover_models", { input });
 }
-export function importConfig(input: {
-  discoveryId: string;
-  selectedModels: string[];
-  defaultModel: string;
-}): Promise<ImportResult> {
+export function importConfig(input: SelectionInput): Promise<ImportResult> {
   return invoke("import_config", { input });
 }
 export interface RestoreFile {
@@ -90,4 +87,23 @@ export function restoreConfig(
   overwriteModified: boolean,
 ): Promise<RestoreResult> {
   return invoke("restore_config", { client, reviewId, overwriteModified });
+}
+
+export type CapabilityState = "supported" | "unsupported" | "unknown";
+export type ToolSearchMode = "auto" | "disabled" | "enabled";
+export interface SetupPreview {
+  toolSearchEnabled: boolean;
+  toolSearchState: CapabilityState;
+  summary: string;
+  warnings: string[];
+  blocked: string | null;
+}
+export interface SelectionInput {
+  discoveryId: string;
+  selectedModels: string[];
+  defaultModel: string;
+  toolSearch: ToolSearchMode;
+}
+export function previewConfig(input: SelectionInput): Promise<SetupPreview> {
+  return invoke("preview_config", { input });
 }

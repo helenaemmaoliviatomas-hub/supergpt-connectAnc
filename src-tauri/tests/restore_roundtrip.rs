@@ -15,6 +15,8 @@ fn input(client: Client, station: &str) -> ValidatedInput {
         "claude-sonnet-test"
     };
     ValidatedInput {
+        capabilities: Default::default(),
+        tool_search: Default::default(),
         client,
         api_key: format!("sk-fixture-only-{station}"),
         root: format!("https://{station}.example.test"),
