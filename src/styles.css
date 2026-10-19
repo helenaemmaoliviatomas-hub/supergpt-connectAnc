@@ -1734,3 +1734,8 @@ strong {
 .capability-setting { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .capability-setting select { max-width: 100%; padding: 8px; color: inherit; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; }
 .capability-warning { opacity: .85; }
+.setup-options { margin: 12px 0; }
+.setup-options summary { cursor: pointer; font-weight: 600; }
+.setup-options .capability-setting { margin-top: 10px; }
+.setup-options p { overflow-wrap: anywhere; }
+.capability-setting select { min-width: 0; max-width: 100%; }

@@ -73,6 +73,8 @@ pub struct SelectionInput {
     pub default_model: String,
     #[serde(default)]
     pub tool_search: crate::capabilities::ToolSearchMode,
+    #[serde(default)]
+    pub options: crate::setup_options::SetupOptions,
 }
 #[derive(Clone, Debug, Serialize)]
 pub struct ModelChoice {
@@ -106,6 +108,7 @@ pub struct ValidatedInput {
     pub catalog: Option<String>,
     pub capabilities: crate::capabilities::RouteCapabilities,
     pub tool_search: crate::capabilities::ToolSearchMode,
+    pub options: crate::setup_options::SetupOptions,
 }
 pub struct DiscoverySession {
     id: String,
@@ -141,6 +144,8 @@ impl DiscoverySession {
         let mut selected =
             prepare_selection(&self.data, &input.selected_models, &input.default_model)?;
         selected.tool_search = input.tool_search;
+        input.options.validate(&selected)?;
+        selected.options = input.options.clone();
         Ok(selected)
     }
 }
@@ -360,6 +365,7 @@ pub fn prepare_selection(
         catalog,
         capabilities: data.capabilities.clone(),
         tool_search: Default::default(),
+        options: Default::default(),
     })
 }
 
@@ -571,6 +577,7 @@ mod session_tests {
         });
         let input = SelectionInput {
             tool_search: Default::default(),
+            options: Default::default(),
             discovery_id: session.response().discovery_id,
             selected_models: vec!["a".into()],
             default_model: "a".into(),

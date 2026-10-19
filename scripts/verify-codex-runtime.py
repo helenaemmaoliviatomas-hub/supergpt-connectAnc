@@ -70,6 +70,11 @@ class Gateway(BaseHTTPRequestHandler):
 
     def do_GET(self):
         url = urlsplit(self.path)
+        if url.path == "/v1/sub2api/connect":
+            self.send_response(404)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
         assert url.path == "/v1/models", self.path
         assert self.headers.get("Authorization") == "Bearer " + FAKE_KEY
         self.server.model_requests.append(self.path)
@@ -97,7 +102,7 @@ class Gateway(BaseHTTPRequestHandler):
         tokens = self.server.usage if normal else 100
         self.server.requests.append({"model": data.get("model"), "reasoning": data.get("reasoning"),
                                      "normal_turn": normal, "reported_input_tokens": tokens,
-                                     "image_urls": images})
+                                     "image_urls": images, "tool_types": [t.get("type") for t in data.get("tools", [])]})
         message = {"id": "msg_fixture", "type": "message", "status": "completed", "role": "assistant",
                    "content": [{"type": "output_text", "text": "OK", "annotations": []}]}
         response = {"id": "resp_" + str(len(self.server.requests)), "object": "response", "model": data["model"],
@@ -124,6 +129,7 @@ class Codex:
         for key in ("OPENAI_API_KEY", "OPENAI_BASE_URL", "CODEX_PROFILE"):
             env.pop(key, None)
         env["CODEX_HOME"] = str(home / ".codex")
+        env["OPENAI_API_KEY"] = "stale-inherited-key-must-not-be-sent"
         self.process = subprocess.Popen([str(executable), "app-server", "--stdio"], cwd=home, env=env,
                                         stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                         text=True, encoding="utf-8", errors="replace")
@@ -215,7 +221,7 @@ def main():
         endpoint = "http://127.0.0.1:" + str(gateway.server_port)
 
         def run_case(label, payload, models, config="", usage=None, all_efforts=False, legacy=False, repair=False,
-                     vision=False, legacy_vision=False):
+                     vision=False, legacy_vision=False, no_login=False, oauth=False, search=None):
             home = temp / (label + " 中文 User")
             home.mkdir()
             (home / ".connect-runtime-fixture").touch()
@@ -223,7 +229,10 @@ def main():
             baseline = ("# Original user configuration\r\n" + config).encode()
             original_auth = b'{\r\n  "OPENAI_API_KEY": "original-fake-key"\r\n}\r\n'
             (home / ".codex/config.toml").write_bytes(baseline)
-            (home / ".codex/auth.json").write_bytes(original_auth)
+            if oauth:
+                original_auth = b'{"auth_mode":"chatgpt","tokens":{"access_token":"fake-access","refresh_token":"fake-refresh","id_token":"fake-id","account_id":"fake-account"}}'
+            if not no_login:
+                (home / ".codex/auth.json").write_bytes(original_auth)
             spec = {"home": str(home), "root": endpoint, "client": "codex-desktop" if len(report["cases"]) % 2 == 0 else "codex",
                     "selectedModels": models, "defaultModel": models[0]}
             request = temp / (label + ".json")
@@ -236,6 +245,10 @@ def main():
             gateway.model_requests = []
             gateway.plain_payload = {"data": [{"id": model} for model in models]} if vision else payload
             apply()
+            if no_login:
+                assert not (home / ".codex/auth.json").exists()
+            else:
+                assert (home / ".codex/auth.json").read_bytes() == original_auth, "Official credentials were changed"
             catalog_path = home / ".codex/supergpt-models.json"
             if legacy_vision:
                 old = json.loads(catalog_path.read_text())
@@ -293,6 +306,8 @@ def main():
                         assert actual == expected, (model, actual, expected)
                         sent = gateway.requests[before:]
                         assert len(sent) == 1 and sent[0]["model"] == model, sent
+                        if search is not None:
+                            assert any(t.startswith("web_search") for t in sent[0]["tool_types"]) == search, sent
                         if row["supports_reasoning_summaries"]:
                             # Codex 0.162 treats Ultra as a local mode, resolving its ordinary
                             # request to the model's multi-agent effort (or Max). This is the
@@ -346,7 +361,10 @@ def main():
                 case["model_discovery_paths"] = gateway.model_requests
             apply(restore=True)
             assert (home / ".codex/config.toml").read_bytes() == baseline
-            assert (home / ".codex/auth.json").read_bytes() == original_auth
+            if no_login:
+                assert not (home / ".codex/auth.json").exists()
+            else:
+                assert (home / ".codex/auth.json").read_bytes() == original_auth
             assert not catalog_path.exists()
             case["restore_exact"] = True
             print("PASS", label, flush=True)
@@ -377,6 +395,11 @@ def main():
             run_case("vision-first-import", vision_models, ["gpt-5.6-sol", "text-only-alias"], vision=True)
             run_case("vision-013-upgrade", vision_models, ["gpt-5.6-sol", "text-only-alias"],
                      vision=True, legacy_vision=True)
+            simple = {"data": [{"id": "gpt-6.1-sol"}]}
+            run_case("route-key-without-login", simple, ["gpt-6.1-sol"], no_login=True, search=False)
+            run_case("route-key-preserves-oauth", simple, ["gpt-6.1-sol"], oauth=True)
+            run_case("reserved-provider-repair", simple, ["gpt-6.1-sol"], '[model_providers.openai]\nbase_url = "https://stale.example"\n')
+            run_case("preserve-web-search", simple, ["gpt-6.1-sol"], 'web_search = "live"\n', search=True)
             report["passed"] = True
         finally:
             gateway.shutdown()

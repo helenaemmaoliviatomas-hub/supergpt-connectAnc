@@ -11,8 +11,12 @@ use serde_json::{json, Value};
 pub const PROFILE_ID: &str = "761c488f-5a98-4c98-bac9-8b667c5be40a";
 
 fn object(text: Option<&str>) -> Result<Value, String> {
-    let value: Value = serde_json::from_str(text.unwrap_or("{}"))
-        .map_err(|_| "Claude 桌面配置不是有效 JSON，未修改配置。")?;
+    let value: Value = serde_json::from_str(
+        text.filter(|s| !s.trim_start_matches('\u{feff}').trim().is_empty())
+            .unwrap_or("{}")
+            .trim_start_matches('\u{feff}'),
+    )
+    .map_err(|_| "Claude 桌面配置不是有效 JSON，未修改配置。")?;
     if !value.is_object() {
         return Err("Claude 桌面配置格式不正确，未修改配置。".into());
     }
@@ -28,12 +32,30 @@ fn patch(paths: &Paths, kind: FileKind, fields: Value) -> Result<Change, String>
         .iter()
         .map(|(key, value)| (KeyPath::new(&[key]), value.clone()))
         .collect();
-    let bytes = JsonPatch {
+    let mut changes = JsonPatch {
         set,
         ..JsonPatch::default()
+    };
+    if matches!(
+        kind,
+        FileKind::ClaudeDesktopConfig | FileKind::ClaudeThreepConfig
+    ) {
+        // Pre-library third-party setups left routing in enterpriseConfig. Clear only
+        // local provider fields; managed policy and other enterprise settings stay intact.
+        for key in [
+            "inferenceProvider",
+            "inferenceGatewayBaseUrl",
+            "inferenceGatewayApiKey",
+            "inferenceGatewayAuthScheme",
+        ] {
+            changes
+                .remove
+                .push(KeyPath::new(&["enterpriseConfig", key]));
+        }
     }
-    .apply(&path, before.as_deref().map(str::as_bytes))
-    .map_err(|e| e.to_string())?;
+    let bytes = changes
+        .apply(&path, before.as_deref().map(str::as_bytes))
+        .map_err(|e| e.to_string())?;
     Ok(Change {
         kind,
         before,
@@ -91,6 +113,13 @@ pub fn changes(
         .any(|v| !v.is_object() || v.get("id").and_then(Value::as_str).is_none())
     {
         return Err("Claude 桌面配置目录包含无法识别的条目，未修改配置。".into());
+    }
+    let mut ids = std::collections::HashSet::new();
+    if entries
+        .iter()
+        .any(|v| !ids.insert(v["id"].as_str().unwrap()))
+    {
+        return Err("Claude 桌面配置目录包含重复的 profile ID，请合并后再导入。".into());
     }
     if let Some(entry) = entries.iter_mut().find(|v| v["id"] == PROFILE_ID) {
         entry["name"] = json!("SuperGPT Connect");

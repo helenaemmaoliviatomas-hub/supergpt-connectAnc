@@ -50,6 +50,7 @@ async fn main() -> Result<(), String> {
         let session = models::DiscoverySession::new(discovered);
         let input = session.prepare(&models::SelectionInput {
             tool_search: Default::default(),
+            options: Default::default(),
             discovery_id: session.response().discovery_id,
             selected_models: spec.selected_models,
             default_model: spec.default_model,

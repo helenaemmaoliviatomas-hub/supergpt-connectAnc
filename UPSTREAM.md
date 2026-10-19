@@ -43,3 +43,15 @@ v0.1.3 同时保留发布目录中的 `multi_agent_reasoning_effort`。Codex 0.1
 0.1.5 参考 CC Switch v4.0.15（988b0d00a45ab70aadc7aad683009269e6038f4d）CommonConfigEditor 的 ENABLE_TOOL_SEARCH 配置及 live/floor 的线路切换思路。Connect 另行实现按密钥与模型查询验证结果、导入前预览和本地冲突检查。Claude 桌面版采用原生 toolSearchEnabled；其 gateway 文档要求 1.21459.0 起支持，1.40609.0 起仅打开工具搜索相关 beta，故自动策略对已检测到的更早版本保守关闭。
 
 参考：<https://code.claude.com/docs/en/mcp#configure-tool-search>；<https://claude.com/docs/third-party/claude-desktop/gateway#mcp-tool-search>。
+
+## 0.1.6 全面对照
+
+2026-10-19 再次核对 CC Switch v4.0.15：annotated tag `988b0d00a45ab70aadc7aad683009269e6038f4d`，实际源码 commit `79e754ab1b6ed50da57dae1d0faecab4b3b52f1c`；当日 main `adc223af322adaeca878e82bf78323865b0db768`。
+
+- `src/utils/claudeEditorOverlay.ts`：第三方网关 AUTO_MODE_SERVER 默认关闭。
+- `src/components/providers/forms/CommonConfigEditor.tsx`：Artifact 与 ToolSearch 独立开关；自动更新和提交署名属于用户偏好，Connect 不替用户改动。
+- `src-tauri/src/live/project/codex.rs`：线路内 Bearer 凭据、保留官方登录、清理保留 provider 名称。Connect 使用独立 `supergpt-connect` ID，`requires_openai_auth=false` 避免回退到官方凭据；真实 0.143 / 0.162 请求验证。
+- `src-tauri/src/live/floor.rs` / `claude_desktop_config.rs`：provider 字段归属、旧桌面网关迁移和 Windows 后缀目录；Connect 对多个候选目录报错，不任意选首个。
+- main 中 5.5 proxy alias 修正用于 CC Switch 本地代理模型映射。Connect 直连保留网关返回的实际 ID，不移植无法反向映射的假别名。
+
+具体分类、修复和未覆盖能力见 COMPATIBILITY.md。所有源自 CC Switch 的代码继续使用原 MIT 许可。

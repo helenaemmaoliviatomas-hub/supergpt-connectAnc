@@ -53,6 +53,8 @@ import {
 } from "./selection";
 import StationEditor from "./StationEditor";
 import RestorePanel from "./RestorePanel";
+import SetupOptionsPanel from "./SetupOptionsPanel";
+import { DEFAULT_OPTIONS, selectedOptions } from "./setup-options";
 import { version } from "../package.json";
 
 import { previewConfig, type SetupPreview, type ToolSearchMode } from "./native";
@@ -146,8 +148,10 @@ export default function App() {
   const [selection, setSelection] = useState<ModelSelection>(EMPTY_SELECTION);
   const [query, setQuery] = useState("");
   const [toolSearch, setToolSearch] = useState<ToolSearchMode>("auto");
+  const [options, setOptions] = useState(DEFAULT_OPTIONS);
+  const effectiveOptions = selectedOptions(client, selection.ids, options);
   const [review, setReview] = useState<{ key: string; value?: SetupPreview; error?: string } | null>(null);
-  const previewKey = JSON.stringify([discovery?.discoveryId, selection, toolSearch]);
+  const previewKey = JSON.stringify([discovery?.discoveryId, selection, toolSearch, effectiveOptions]);
   const preview = review?.key === previewKey ? review.value : undefined;
   const previewError = review?.key === previewKey ? review.error : undefined;
   useEffect(() => {
@@ -155,7 +159,7 @@ export default function App() {
     let active = true;
     const timer = window.setTimeout(() => {
       previewConfig({ discoveryId: discovery.discoveryId, selectedModels: selection.ids,
-        defaultModel: selection.defaultId, toolSearch })
+        defaultModel: selection.defaultId, toolSearch, options: effectiveOptions })
         .then(value => { if (active) setReview({ key: previewKey, value }); })
         .catch(error => { if (active) setReview({ key: previewKey, error: typeof error === "string" ? error : "无法检查导入设置，请重新获取模型。" }); });
     }, 150);
@@ -214,6 +218,7 @@ export default function App() {
   function clearDiscovery() {
     setDiscovery(null);
     setToolSearch("auto");
+    setOptions(DEFAULT_OPTIONS);
     setReview(null);
     setSelection(EMPTY_SELECTION);
     setQuery("");
@@ -286,6 +291,7 @@ export default function App() {
         selectedModels: selection.ids,
         defaultModel: selection.defaultId,
         toolSearch,
+        options: effectiveOptions,
       });
       setResult(imported);
       setApiKey("");
@@ -882,8 +888,12 @@ export default function App() {
                           <option value="enabled">手动开启</option>
                         </select>
                       </label>}
+                      <SetupOptionsPanel client={client} models={selection.ids} value={effectiveOptions} change={setOptions} disabled={disabled} />
                       {preview ? <>
                         <p><strong>{preview.summary}</strong></p>
+                        {!!preview.details.length && <details className="setup-options"><summary>查看实际写入设置</summary>
+                          {preview.details.map(text => <p key={text}>{text}</p>)}
+                        </details>}
                         {preview.warnings.map(text => <p key={text} className="capability-warning">{text}</p>)}
                         {preview.blocked && <p className="blocking-note" role="alert">{preview.blocked}</p>}
                       </> : <p>{previewError || "正在检查线路和本机设置…"}</p>}

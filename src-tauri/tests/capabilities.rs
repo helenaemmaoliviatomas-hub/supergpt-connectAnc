@@ -8,7 +8,7 @@ use supergpt_connect_lib::{
 };
 fn input(client: Client, status: &str) -> ValidatedInput {
     ValidatedInput { client, api_key:"sk-fixture-only".into(), root:"https://gateway.example.test".into(),model:"claude-sonnet-4-6".into(),selected_models:vec!["claude-sonnet-4-6".into()],catalog:None,
-        capabilities: capabilities::parse(&json!({"object":"supergpt.connect_capabilities","schema_version":1,"models":{"claude-sonnet-4-6":{"messages":{"status":"supported"},"claude_tool_search":{"status":status}}}})).unwrap(),tool_search:ToolSearchMode::Auto }
+        capabilities: capabilities::parse(&json!({"object":"supergpt.connect_capabilities","schema_version":1,"models":{"claude-sonnet-4-6":{"messages":{"status":"supported"},"claude_tool_search":{"status":status}}}})).unwrap(),tool_search:ToolSearchMode::Auto, options:Default::default() }
 }
 fn read(paths: &Paths, kind: FileKind) -> Value {
     serde_json::from_str(&std::fs::read_to_string(paths.target(kind)).unwrap()).unwrap()

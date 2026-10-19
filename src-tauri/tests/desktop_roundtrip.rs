@@ -11,6 +11,7 @@ fn input(client: Client) -> ValidatedInput {
     ValidatedInput {
         capabilities: Default::default(),
         tool_search: Default::default(),
+        options: Default::default(),
         client,
         api_key: "sk-isolated-test-only".into(),
         root: "https://gateway.example.test".into(),
@@ -85,6 +86,10 @@ fn malformed_desktop_registry_or_non_claude_model_never_half_activates() {
     for (meta, model) in [
         ("{\"entries\":42}", "claude-sonnet-test"),
         ("{\"entries\":[{}]}", "claude-sonnet-test"),
+        (
+            "{\"entries\":[{\"id\":\"duplicate\"},{\"id\":\"duplicate\"}]}",
+            "claude-sonnet-test",
+        ),
         ("{}", "gpt-test"),
     ] {
         let home = tempfile::tempdir().unwrap();
@@ -136,9 +141,11 @@ fn vscode_updates_login_environment_preserves_jsonc_and_restores_both_files() {
     assert!(vars
         .iter()
         .any(|v| v["name"] == "KEEP_ME" && v["value"] == "yes"));
-    assert!(!vars
+    assert!(vars
         .iter()
-        .any(|v| v["name"] == "ANTHROPIC_API_KEY" || v["name"] == "CLAUDE_CODE_USE_BEDROCK"));
+        .filter(|v| v["name"] == "ANTHROPIC_API_KEY" || v["name"] == "CLAUDE_CODE_USE_BEDROCK")
+        .all(|v| v["value"] == ""));
+    assert_eq!(doc["claudeCode.disableLoginPrompt"], true);
     assert_eq!(
         read(&paths, FileKind::ClaudeSettings)["model"],
         "claude-opus-test"
@@ -186,7 +193,11 @@ fn codex_desktop_and_cli_share_catalog_credentials_and_restore_point() {
         .unwrap()
         .parse::<toml_edit::DocumentMut>()
         .unwrap();
-    assert_eq!(doc["cli_auth_credentials_store"].as_str(), Some("file"));
+    assert!(doc.get("cli_auth_credentials_store").is_none());
+    assert_eq!(
+        doc["model_providers"]["supergpt-connect"]["requires_openai_auth"].as_bool(),
+        Some(false)
+    );
     assert_eq!(doc["model_provider"].as_str(), Some("supergpt-connect"));
     assert!(doc["model_catalog_json"]
         .as_str()

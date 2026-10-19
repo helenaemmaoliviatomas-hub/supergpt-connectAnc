@@ -104,6 +104,48 @@ impl Paths {
             FileKind::CodexCatalog => self.codex.join("supergpt-models.json"),
         }
     }
+    /// The extension can override CLAUDE_CONFIG_DIR independently of Connect's process.
+    /// Use the same resolution for preview, write and restore; never silently choose another home.
+    pub fn for_client(&self, client: Client) -> Result<Self, String> {
+        let mut paths = self.clone();
+        #[cfg(windows)]
+        if client == Client::ClaudeDesktop {
+            let data = self
+                .claude_desktop
+                .parent()
+                .ok_or("Claude 数据目录无效。")?;
+            paths.claude_desktop = claude_desktop_directory(data, false)?;
+            paths.claude_threep = claude_desktop_directory(data, true)?;
+        }
+        if client == Client::ClaudeVscode {
+            let doc = crate::vscode_config::read(self)?;
+            if let Some(vars) = doc.get("claudeCode.environmentVariables") {
+                let vars = vars
+                    .as_array()
+                    .ok_or("claudeCode.environmentVariables 必须是数组。")?;
+                let values: Vec<_> = vars
+                    .iter()
+                    .filter(|v| v["name"] == "CLAUDE_CONFIG_DIR")
+                    .collect();
+                if values.len() > 1 {
+                    return Err("VS Code 中有重复的 CLAUDE_CONFIG_DIR，请合并后再导入。".into());
+                }
+                if let Some(v) = values.first() {
+                    let value = v["value"]
+                        .as_str()
+                        .ok_or("VS Code 的 CLAUDE_CONFIG_DIR 必须是字符串。")?;
+                    if !value.is_empty() {
+                        let path = PathBuf::from(value);
+                        if !path.is_absolute() {
+                            return Err("VS Code 的 CLAUDE_CONFIG_DIR 必须是绝对路径，不能使用 ~ 或相对路径。".into());
+                        }
+                        paths.claude = path;
+                    }
+                }
+            }
+        }
+        Ok(paths)
+    }
     pub(crate) fn record(&self, client: Client, pending: bool) -> PathBuf {
         self.state.join(format!(
             "{}.{}.json",
@@ -132,6 +174,38 @@ impl Paths {
         file.try_lock_exclusive()
             .map_err(|_| "另一个导入操作正在进行，请稍后重试。")?;
         Ok(file)
+    }
+}
+
+/// Some Windows builds suffix Claude's data directory. Never pick an arbitrary
+/// first directory when multiple installations exist.
+pub fn claude_desktop_directory(data: &Path, threep: bool) -> Result<PathBuf, String> {
+    let exact = data.join(if threep { "Claude-3p" } else { "Claude" });
+    if exact.is_dir() {
+        return Ok(exact);
+    }
+    let candidates: Vec<_> = fs::read_dir(data)
+        .into_iter()
+        .flatten()
+        .filter_map(Result::ok)
+        .map(|e| e.path())
+        .filter(|p| p.is_dir())
+        .filter(|p| {
+            p.file_name()
+                .and_then(|n| n.to_str())
+                .is_some_and(|n| n.starts_with("Claude") && n.contains("-3p") == threep)
+        })
+        .filter(|p| {
+            p.join("claude_desktop_config.json").is_file() || p.join("configLibrary").is_dir()
+        })
+        .collect();
+    match candidates.as_slice() {
+        [] => Ok(exact),
+        [path] => Ok(path.clone()),
+        _ => Err(
+            "检测到多个 Claude 桌面配置目录，无法确定正在使用的安装。请先确认客户端数据目录。"
+                .into(),
+        ),
     }
 }
 
@@ -425,6 +499,8 @@ fn restore_record(paths: &Paths, client: Client, record: &Path) -> Result<(), St
 }
 
 pub fn restore(paths: &Paths, client: Client) -> Result<(), String> {
+    let resolved = paths.for_client(client)?;
+    let paths = &resolved;
     let client = client.backup_client();
     let _lock = paths.lock()?;
     let pending = paths.record(client, true);

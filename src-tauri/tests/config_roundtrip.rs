@@ -9,6 +9,7 @@ fn input(client: Client) -> ValidatedInput {
     ValidatedInput {
         capabilities: Default::default(),
         tool_search: Default::default(),
+        options: Default::default(),
         client,
         api_key: "sk-fake-test-only".into(),
         root: "https://api.example.test".into(),
@@ -96,8 +97,8 @@ fn claude_merge_preserves_hooks_permissions_unrelated_env_and_bom() {
     assert_eq!(doc["hooks"]["Stop"], serde_json::json!([]));
     assert_eq!(doc["permissions"]["allow"], serde_json::json!(["Read"]));
     assert_eq!(doc["env"]["CUSTOM_VAR"], "keep");
-    assert!(doc["env"].get("ANTHROPIC_API_KEY").is_none());
-    assert!(doc["env"].get("CLAUDE_CODE_USE_BEDROCK").is_none());
+    assert_eq!(doc["env"]["ANTHROPIC_API_KEY"], "");
+    assert_eq!(doc["env"]["CLAUDE_CODE_USE_BEDROCK"], "");
     storage::restore(&paths, Client::Claude).unwrap();
     assert_eq!(
         fs::read_to_string(paths.target(FileKind::ClaudeSettings)).unwrap(),
@@ -137,12 +138,15 @@ fn restore_refuses_to_destroy_later_user_edits_or_a_different_config_directory()
     let mut text = fs::read_to_string(&config).unwrap();
     text.push_str("\n# My later edit\n");
     storage::atomic_write(&config, text.as_bytes()).unwrap();
-    let auth = fs::read(paths.target(FileKind::CodexAuth)).unwrap();
+    let auth = storage::read_optional(&paths.target(FileKind::CodexAuth)).unwrap();
     assert!(storage::restore(&paths, Client::Codex)
         .unwrap_err()
         .contains("又被修改"));
     assert_eq!(fs::read_to_string(&config).unwrap(), text);
-    assert_eq!(fs::read(paths.target(FileKind::CodexAuth)).unwrap(), auth);
+    assert_eq!(
+        storage::read_optional(&paths.target(FileKind::CodexAuth)).unwrap(),
+        auth
+    );
     assert!(paths.has_backup(Client::Codex));
 }
 
@@ -265,7 +269,7 @@ fn claude_picker_contains_exactly_selected_models_and_default_can_be_changed_lat
     assert_eq!(picker["replaceBuiltInOptions"], true);
     assert_eq!(picker["options"].as_array().unwrap().len(), 2);
     assert_eq!(picker["options"][1]["model"], "custom-team-model");
-    assert!(result["env"].get("ANTHROPIC_MODEL").is_none());
+    assert_eq!(result["env"]["ANTHROPIC_MODEL"], "");
     storage::restore(&paths, Client::Claude).unwrap();
     assert_eq!(
         fs::read_to_string(paths.target(FileKind::ClaudeSettings)).unwrap(),

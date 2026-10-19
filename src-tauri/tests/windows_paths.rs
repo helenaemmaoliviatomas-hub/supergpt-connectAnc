@@ -21,6 +21,7 @@ fn unicode_home_catalog_and_original_crlf_auth_round_trip() {
         ValidatedInput {
             capabilities: Default::default(),
             tool_search: Default::default(),
+            options: Default::default(),
             client: Client::CodexDesktop,
             api_key: "sk-isolated-test-only".into(),
             root: "https://gateway.example.test".into(),

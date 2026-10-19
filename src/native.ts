@@ -97,12 +97,19 @@ export interface SetupPreview {
   summary: string;
   warnings: string[];
   blocked: string | null;
+  details: string[];
+}
+export interface SetupOptions {
+  claudeModels: Partial<Record<"haiku" | "sonnet" | "opus" | "fable" | "subagent", string>>;
+  artifactMode: "preserve" | "disabled" | "enabled";
+  webSearch: "preserve" | "disabled" | "cached" | "live";
 }
 export interface SelectionInput {
   discoveryId: string;
   selectedModels: string[];
   defaultModel: string;
   toolSearch: ToolSearchMode;
+  options: SetupOptions;
 }
 export function previewConfig(input: SelectionInput): Promise<SetupPreview> {
   return invoke("preview_config", { input });

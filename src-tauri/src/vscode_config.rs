@@ -22,6 +22,36 @@ fn cst(value: Value) -> CstInputValue {
     }
 }
 
+pub fn read(paths: &Paths) -> Result<Value, String> {
+    let text = storage::read_optional(&paths.target(FileKind::ClaudeVscode))?;
+    let text = text
+        .as_deref()
+        .filter(|s| !s.trim().is_empty())
+        .unwrap_or("{}");
+    let doc: Value =
+        jsonc_parser::parse_to_serde_value(text.trim_start_matches('\u{feff}'), &options())
+            .map_err(|_| "VS Code 用户设置不是有效 JSONC，未修改配置。")?;
+    if !doc.is_object() {
+        return Err("VS Code 用户设置必须是对象，未修改配置。".into());
+    }
+    Ok(doc)
+}
+
+fn options() -> ParseOptions {
+    ParseOptions {
+        allow_comments: true,
+        allow_trailing_commas: true,
+        allow_loose_object_property_names: false,
+        allow_missing_commas: false,
+        allow_single_quoted_strings: false,
+        allow_hexadecimal_numbers: false,
+        allow_unary_plus_numbers: false,
+        allow_bare_decimal_point_numbers: false,
+        allow_non_finite_numbers: false,
+        allow_extended_string_escapes: false,
+    }
+}
+
 pub fn change(
     paths: &Paths,
     input: &ValidatedInput,
@@ -34,18 +64,7 @@ pub fn change(
         .filter(|s| !s.trim().is_empty())
         .unwrap_or("{}");
     // VS Code supports JSON + comments/trailing commas, not JSON5.
-    let options = ParseOptions {
-        allow_comments: true,
-        allow_trailing_commas: true,
-        allow_loose_object_property_names: false,
-        allow_missing_commas: false,
-        allow_single_quoted_strings: false,
-        allow_hexadecimal_numbers: false,
-        allow_unary_plus_numbers: false,
-        allow_bare_decimal_point_numbers: false,
-        allow_non_finite_numbers: false,
-        allow_extended_string_escapes: false,
-    };
+    let options = options();
     let doc: Value = jsonc_parser::parse_to_serde_value(text, &options)
         .map_err(|_| "VS Code 用户设置不是有效 JSONC，未修改配置。")?;
     if !doc.is_object() {
@@ -67,15 +86,7 @@ pub fn change(
         !provider_fields::claude_floor_env(v["name"].as_str().unwrap())
             && v["name"] != "ENABLE_TOOL_SEARCH"
     });
-    for (name, value) in [
-        ("ANTHROPIC_BASE_URL", input.root.as_str()),
-        ("ANTHROPIC_AUTH_TOKEN", input.api_key.as_str()),
-        ("CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC", "1"),
-        (
-            "ENABLE_TOOL_SEARCH",
-            if tool_search_enabled { "true" } else { "false" },
-        ),
-    ] {
+    for (name, value) in crate::claude_config::environment(input, tool_search_enabled) {
         vars.retain(|v| v["name"] != name);
         vars.push(json!({"name": name, "value": value}));
     }
@@ -83,21 +94,26 @@ pub fn change(
     // settings stay byte-for-byte intact, including trailing commas and URLs.
     let root = CstRootNode::parse(text, &options).map_err(|_| "无法解析 VS Code 设置。")?;
     let obj = root.object_value_or_set();
-    if obj
-        .properties()
-        .iter()
-        .filter(|prop| prop.decoded_name().as_deref() == Some(key))
-        .count()
-        > 1
-    {
-        return Err(
-            "VS Code 中有重复的 claudeCode.environmentVariables 设置，请合并后再导入。".into(),
-        );
+    for owned in [key, "claudeCode.disableLoginPrompt"] {
+        if obj
+            .properties()
+            .iter()
+            .filter(|prop| prop.decoded_name().as_deref() == Some(owned))
+            .count()
+            > 1
+        {
+            return Err(format!("VS Code 中有重复的 {owned} 设置，请合并后再导入。"));
+        }
     }
     if let Some(property) = obj.get(key) {
         property.set_value(cst(json!(vars)));
     } else {
         obj.append(key, cst(json!(vars)));
+    }
+    if let Some(property) = obj.get("claudeCode.disableLoginPrompt") {
+        property.set_value(CstInputValue::Bool(true));
+    } else {
+        obj.append("claudeCode.disableLoginPrompt", CstInputValue::Bool(true));
     }
     Ok(Change {
         kind,

@@ -20,6 +20,7 @@ fn import(paths: &Paths, id: &str, metadata: Value) -> Result<(), String> {
         ValidatedInput {
             capabilities: Default::default(),
             tool_search: Default::default(),
+            options: Default::default(),
             client: Client::CodexDesktop,
             api_key: "fake-test-only".into(),
             root: "https://example.test".into(),

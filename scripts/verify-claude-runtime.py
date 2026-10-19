@@ -10,7 +10,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 ROOT = Path(__file__).resolve().parents[1]
 MODEL = os.environ.get('CONNECT_FIXTURE_MODEL','claude-sonnet-4-6')
-FIXTURE = ROOT / 'test-results/claude-runtime' / MODEL
+SCENARIO = os.environ.get('CONNECT_FIXTURE_SCENARIO', 'default')
+FIXTURE = ROOT / 'test-results/claude-runtime' / (MODEL + '-' + SCENARIO)
 NAME = 'mcp__fixture__lookup_marker'
 
 if '--mcp' in sys.argv:
@@ -42,6 +43,9 @@ class Handler(BaseHTTPRequestHandler):
             raw = json.dumps({'input_tokens': 10}).encode()
             self.send_response(200); self.send_header('Content-Type', 'application/json'); self.end_headers(); self.wfile.write(raw)
             return
+        assert self.headers.get('Authorization') == 'Bearer sk-local-fixture'
+        assert not self.headers.get('X-Api-Key'), 'Stale inherited API key reached gateway'
+        assert body['model'] == MODEL, body['model']
         requests.append(body)
         index = len(requests)
         (FIXTURE / f'request-{index}.json').write_text(json.dumps(body, indent=2))
@@ -66,10 +70,18 @@ server = ThreadingHTTPServer(('127.0.0.1', 0), Handler)
 threading.Thread(target=server.serve_forever, daemon=True).start()
 env = {k: os.environ[k] for k in ['PATH', 'TMPDIR', 'LANG', 'LC_ALL', 'SystemRoot', 'SYSTEMROOT', 'WINDIR', 'TEMP', 'TMP', 'COMSPEC', 'PATHEXT'] if k in os.environ}
 fixture_binary = ROOT / ('src-tauri/target/debug/examples/claude_fixture.exe' if os.name == 'nt' else 'src-tauri/target/debug/examples/claude_fixture')
-config_dir = subprocess.check_output([str(fixture_binary), str(FIXTURE/'home'), f'http://127.0.0.1:{server.server_port}', MODEL, 'supported'],text=True).strip()
+fixture_args = [str(fixture_binary), str(FIXTURE/'home'), f'http://127.0.0.1:{server.server_port}', MODEL, 'supported']
+if SCENARIO == 'role':
+    fixture_args[3] = 'claude-opus-5-5'
+    fixture_args.append(json.dumps(['claude-opus-5-5', MODEL]))
+config_dir = subprocess.check_output(fixture_args,text=True).strip()
 env.update({'CLAUDE_CONFIG_DIR': config_dir, 'CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC': '1', 'MCP_CONNECTION_NONBLOCKING': '0', 'CLAUDE_CODE_MAX_OUTPUT_TOKENS': '512'})
 mcp = {'mcpServers': {'fixture': {'command': sys.executable, 'args': [str(Path(__file__)), '--mcp'], 'alwaysLoad': False}}}
-argv = [shutil.which('claude') or 'claude', '--setting-sources', 'user', '--settings', '{"disableAllHooks":true}', '--system-prompt', 'You are a synthetic compatibility tester. Follow the user and only use the provided tools.', '--strict-mcp-config', '--mcp-config', json.dumps(mcp), '--model', MODEL, '--tools', 'ToolSearch', '--allowedTools', NAME, '--disable-slash-commands', '--output-format', 'json', '--max-turns', '4', '-p', 'Use ToolSearch to find the fixture lookup_marker tool. Call that tool and reply with the exact marker it returns.']
+if SCENARIO == 'inherited':
+    env.update({'ANTHROPIC_API_KEY':'stale-key', 'ANTHROPIC_MODEL':'stale-model', 'CLAUDE_CODE_USE_VERTEX':'1', 'CLAUDE_CODE_USE_BEDROCK':'1', 'CLAUDE_CODE_OAUTH_TOKEN':'stale-oauth', 'ANTHROPIC_CUSTOM_HEADERS':'X-Old: stale'})
+argv = [shutil.which('claude') or 'claude', '--setting-sources', 'user', '--settings', '{"disableAllHooks":true}', '--system-prompt', 'You are a synthetic compatibility tester. Follow the user and only use the provided tools.', '--strict-mcp-config', '--mcp-config', json.dumps(mcp), '--tools', 'ToolSearch', '--allowedTools', NAME, '--disable-slash-commands', '--output-format', 'json', '--max-turns', '4', '-p', 'Use ToolSearch to find the fixture lookup_marker tool. Call that tool and reply with the exact marker it returns.']
+if SCENARIO == 'role':
+    argv[1:1] = ['--model', 'haiku']
 try:
     p = subprocess.run(argv, cwd=FIXTURE, env=env, text=True, capture_output=True, timeout=60)
     (FIXTURE / 'stdout.txt').write_text(p.stdout)

@@ -13,6 +13,7 @@ fn input(id: &str, metadata: Value) -> ValidatedInput {
     ValidatedInput {
         capabilities: Default::default(),
         tool_search: Default::default(),
+        options: Default::default(),
         client: Client::CodexDesktop,
         api_key: "fake-fixture-only".into(),
         root: "https://example.test".into(),
@@ -232,11 +233,11 @@ fn broken_local_repairs_abort_without_overwriting_any_client_file() {
     ];
     let before: Vec<_> = files
         .iter()
-        .map(|k| fs::read(paths.target(*k)).unwrap())
+        .map(|k| storage::read_optional(&paths.target(*k)).unwrap())
         .collect();
     assert!(adapter::apply(&paths, input("gpt-6.1-sol", json!({}))).is_err());
     for (kind, bytes) in files.iter().zip(before) {
-        assert_eq!(fs::read(paths.target(*kind)).unwrap(), bytes);
+        assert_eq!(storage::read_optional(&paths.target(*kind)).unwrap(), bytes);
     }
 }
 

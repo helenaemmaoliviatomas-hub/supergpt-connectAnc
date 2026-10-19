@@ -257,6 +257,7 @@ fn model_selection_is_bound_to_the_discovery_session() {
     let response = session.response();
     let mut request = models::SelectionInput {
         tool_search: Default::default(),
+        options: Default::default(),
         discovery_id: response.discovery_id,
         selected_models: vec!["custom-a".into()],
         default_model: "custom-a".into(),
