@@ -59,20 +59,20 @@ if (extraRuntime.length) throw new Error(`Portable EXE still requires unbundled 
 const release = path.join(root, 'release');
 fs.mkdirSync(release, { recursive: true });
 const stage = fs.mkdtempSync(path.join(os.tmpdir(), 'supergpt-windows-package-'));
-const folder = path.join(stage, 'SuperGPT Connect');
-const archiveName = `SuperGPT-Connect-${version}-Windows-x64-portable.zip`;
+const folder = path.join(stage, 'FishNineteenGPT Connect');
+const archiveName = `FishNineteenGPT-Connect-${version}-Windows-x64-portable.zip`;
 try {
   fs.mkdirSync(folder);
-  fs.copyFileSync(executable, path.join(folder, 'SuperGPT Connect.exe'));
+  fs.copyFileSync(executable, path.join(folder, 'FishNineteenGPT Connect.exe'));
   fs.copyFileSync(path.join(root, 'LICENSE'), path.join(folder, 'LICENSE.txt'));
   fs.cpSync(path.join(root, 'licenses'), path.join(folder, 'licenses'), { recursive: true });
-  const instructions = `SuperGPT Connect ${version} · Windows 免安装版
+  const instructions = `FishNineteenGPT Connect ${version} · Windows 免安装版
 
 适用：Windows 10 / 11，64 位 Intel / AMD 电脑。
 
 使用方法
 1. 先把整个压缩包解压到一个文件夹。
-2. 双击「SuperGPT Connect.exe」。无需管理员权限，无需安装 Node.js 或 Rust。
+2. 双击「FishNineteenGPT Connect.exe」。无需管理员权限，无需安装 Node.js 或 Rust。
 3. 选择中转站 → 选择客户端 → 输入自己的 API Key → 获取并勾选模型 → 导入。
 4. 完全退出 Claude / Codex 后重新打开，再新建会话。
    Claude 如留在系统托盘中，请从托盘菜单退出。
@@ -94,9 +94,10 @@ Claude / Codex 客户端需要另外安装。本工具只配置当前 Windows �
 WSL、远程开发环境有自己的配置，须在对应环境另行设置。
 应用关闭后不会常驻。配置与恢复记录保存在当前用户目录；删除 EXE 不会自动恢复配置。
 ${process.platform === 'win32' ? '本包在 Windows 上构建。' : '本包由其他系统交叉编译。'}测试范围见：
-https://github.com/superpilot69/supergpt-connect/blob/main/VERIFICATION.md
+https://github.com/helenaemmaoliviatomas-hub/supergpt-connectAnc/blob/main/VERIFICATION.md
 
-源码与许可：https://github.com/superpilot69/supergpt-connect
+源码与许可：https://github.com/helenaemmaoliviatomas-hub/supergpt-connectAnc
+上游来源：https://github.com/superpilot69/supergpt-connect
 `;
   // ASCII filenames also extract correctly in older Windows ZIP tools; contents are Chinese UTF-8.
   fs.writeFileSync(path.join(folder, 'README.txt'), '\ufeff' + instructions.replace(/\n/g, '\r\n'));
@@ -107,9 +108,9 @@ https://github.com/superpilot69/supergpt-connect/blob/main/VERIFICATION.md
     // Git Bash also ships a GNU tar.exe, which treats a drive letter as a remote
     // host and cannot create ZIPs. Use Windows' libarchive tar explicitly.
     const windowsTar = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'tar.exe');
-    run(windowsTar, ['-a', '-cf', archiveName, 'SuperGPT Connect'], stage);
+    run(windowsTar, ['-a', '-cf', archiveName, 'FishNineteenGPT Connect'], stage);
   } else {
-    run('zip', ['-q', '-r', stagedArchive, 'SuperGPT Connect'], stage);
+    run('zip', ['-q', '-r', stagedArchive, 'FishNineteenGPT Connect'], stage);
   }
   fs.copyFileSync(stagedArchive, path.join(release, archiveName));
   const hashes = fs.readdirSync(release).filter(name => name.endsWith('.zip')).sort()

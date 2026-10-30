@@ -1,4 +1,4 @@
-/* SuperGPT console brand colors. */
+/* FishNineteenGPT Connect brand colors (inherited palette). */
 :root {
   font-family:
     Inter,
@@ -141,8 +141,8 @@ strong {
   flex-shrink: 0;
 }
 .brand-wordmark {
-  font-size: 21px;
-  letter-spacing: -0.9px;
+  font-size: 17px;
+  letter-spacing: -0.6px;
   font-weight: 650;
 }
 .brand-divider {
@@ -1485,7 +1485,7 @@ strong {
     display: none;
   }
   .brand-wordmark {
-    font-size: 19px;
+    font-size: 14px;
   }
   .brand-icon {
     width: 35px;

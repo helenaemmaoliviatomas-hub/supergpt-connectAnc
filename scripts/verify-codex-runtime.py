@@ -39,7 +39,7 @@ def download_codex(directory):
         name = f"codex-{arch}-apple-darwin.tar.gz"
     else:
         raise RuntimeError("Use --codex PATH outside macOS and Windows")
-    headers = {"User-Agent": "SuperGPT-Connect-verification"}
+    headers = {"User-Agent": "FishNineteenGPT-Connect-verification"}
     if token := os.environ.get("GITHUB_TOKEN"):
         headers["Authorization"] = "Bearer " + token
     req = urllib.request.Request(

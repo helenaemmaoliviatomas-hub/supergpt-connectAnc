@@ -341,8 +341,8 @@ pub fn next_steps(client: Client) -> Vec<String> {
         ],
         Client::Claude => vec!["退出当前 Claude Code 进程，在新终端重新运行 claude。".into(), "输入 /status，确认 API 地址；使用 /model 检查模型。旧版请先升级。".into()],
         Client::ClaudeVscode => vec!["在 VS Code 执行 Developer: Reload Window，再新建 Claude Code 会话。".into(), "确认使用默认 VS Code Profile；工作区设置可能覆盖用户设置。".into()],
-        Client::CodexDesktop => vec!["完全退出 Codex 桌面应用，再重新打开，新建本地会话。".into(), "确认当前服务为 SuperGPT Connect，模型与本次选择一致；原官方登录可保留，已有会话或云端任务不会自动迁移。".into()],
-        Client::Codex => vec!["退出当前 Codex 进程并重新运行 codex。".into(), "输入 /status，确认 SuperGPT Connect 服务和所选模型。桌面版也需重启后生效。".into()],
+        Client::CodexDesktop => vec!["完全退出 Codex 桌面应用，再重新打开，新建本地会话。".into(), "确认当前服务为 FishNineteenGPT Connect，模型与本次选择一致；原官方登录可保留，已有会话或云端任务不会自动迁移。".into()],
+        Client::Codex => vec!["退出当前 Codex 进程并重新运行 codex。".into(), "输入 /status，确认 FishNineteenGPT Connect 服务和所选模型。桌面版也需重启后生效。".into()],
     }
 }
 
