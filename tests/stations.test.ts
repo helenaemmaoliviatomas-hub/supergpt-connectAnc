@@ -6,7 +6,7 @@ import {
   parseStationPreferences,
 } from "../src/stations.ts";
 
-test("new installs and corrupted preferences fall back to SuperGPT", () => {
+test("new installs and corrupted preferences fall back to FishNineteenGPT", () => {
   for (const raw of [null, "", "{", "{}", "null", '{"version":99}']) {
     assert.deepEqual(parseStationPreferences(raw), {
       version: 1,
@@ -14,6 +14,8 @@ test("new installs and corrupted preferences fall back to SuperGPT", () => {
       custom: [],
     });
   }
+  assert.equal(DEFAULT_STATION.name, "FishNineteenGPT");
+  assert.equal(DEFAULT_STATION.baseUrl, "https://fishnineteenanh.ccwu.cc");
 });
 test("custom stations and selection survive serialization without persisting credentials", () => {
   const source = {
@@ -64,7 +66,7 @@ test("invalid destinations cannot be saved, including credentials in URLs", () =
           custom: [{ id: "custom-test", name: "Bad", baseUrl: url }],
         }),
       ).selected,
-      "supergpt",
+      "fishnineteengpt",
     );
   }
   assert.equal(
@@ -79,21 +81,21 @@ test("duplicate destinations, duplicate IDs, and attempts to replace the default
       selected: "custom-removed",
       custom: [
         {
-          id: "supergpt",
+          id: "fishnineteengpt",
           name: "Imposter",
           baseUrl: "https://bad.example.test",
         },
         {
           id: "custom-copy",
           name: "Copy",
-          baseUrl: "https://api.supergpt.dev/v1",
+          baseUrl: "https://fishnineteenanh.ccwu.cc/v1",
         },
         { id: "custom-one", name: "One", baseUrl: "https://one.example.test" },
         { id: "custom-one", name: "Two", baseUrl: "https://two.example.test" },
       ],
     }),
   );
-  assert.equal(loaded.selected, "supergpt");
+  assert.equal(loaded.selected, "fishnineteengpt");
   assert.deepEqual(
     loaded.custom.map((item) => item.id),
     ["custom-one"],

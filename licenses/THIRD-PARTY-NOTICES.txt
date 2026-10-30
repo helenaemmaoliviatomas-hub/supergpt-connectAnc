@@ -1,4 +1,4 @@
-SuperGPT Connect — Third-party notices
+FishNineteenGPT Connect — Third-party notices
 
 Inventory of the normal dependency closure for macOS arm64 and Windows x64,
 plus production JavaScript dependencies. Some entries are compile-time dependencies.

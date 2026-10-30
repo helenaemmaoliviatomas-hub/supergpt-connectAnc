@@ -9,9 +9,9 @@ export interface StationPreferences {
   custom: Station[];
 }
 export const DEFAULT_STATION: Station = {
-  id: "supergpt",
-  name: "SuperGPT",
-  baseUrl: "https://api.supergpt.dev",
+  id: "fishnineteengpt",
+  name: "FishNineteenGPT",
+  baseUrl: "https://fishnineteenanh.ccwu.cc",
 };
 export const STATION_STORAGE_KEY = "supergpt-connect.stations.v1";
 

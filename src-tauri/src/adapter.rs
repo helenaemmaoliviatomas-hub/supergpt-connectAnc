@@ -115,7 +115,7 @@ pub fn apply(paths: &Paths, input: ValidatedInput) -> Result<ImportResult, Strin
                 );
             }
             let mut provider = Table::new();
-            provider.insert("name", value("SuperGPT Connect"));
+            provider.insert("name", value("FishNineteenGPT Connect"));
             provider.insert("base_url", value(format!("{}/v1", input.root)));
             provider.insert("wire_api", value("responses"));
             // Bind credentials to this route; never replace or forward the user's official login.

@@ -7,10 +7,10 @@
   "description": "A minimal local API configurator for Claude and Codex",
   "repository": {
     "type": "git",
-    "url": "https://github.com/superpilot69/supergpt-connect.git"
+    "url": "https://github.com/helenaemmaoliviatomas-hub/supergpt-connectAnc.git"
   },
-  "homepage": "https://github.com/superpilot69/supergpt-connect",
-  "bugs": "https://github.com/superpilot69/supergpt-connect/issues",
+  "homepage": "https://github.com/helenaemmaoliviatomas-hub/supergpt-connectAnc",
+  "bugs": "https://github.com/helenaemmaoliviatomas-hub/supergpt-connectAnc/issues",
   "scripts": {
     "dev": "tauri dev",
     "dev:web": "vite --host 127.0.0.1",
